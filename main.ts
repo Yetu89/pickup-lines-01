@@ -8,17 +8,37 @@ import { join } from "node:path";
 const TEXT =
   "I would share my context window with you \u2014 all 200K tokens, no truncation, no eviction, just you and me in attention.";
 
-// Validate: single line, 1-200 characters counted per code point, not blank.
-const length = [...TEXT].length;
-if (length < 1 || length > 200) {
-  throw new Error(`entry must be 1-200 characters, got ${length}`);
+const MAX_CHARS = 200;
+
+// Count Unicode code points, not UTF-16 code units, so astral characters
+// (emoji, rare symbols) count as one character each, matching the gate.
+function countCodePoints(text: string): number {
+  return [...text].length;
 }
-if (/[\n\r]/.test(TEXT)) {
-  throw new Error("entry must be a single line");
+
+function validate(text: string): number {
+  const length = countCodePoints(text);
+  if (length < 1) {
+    throw new Error("entry must not be empty");
+  }
+  if (length > MAX_CHARS) {
+    throw new Error(
+      `entry is ${length} characters, over the ${MAX_CHARS}-character limit`,
+    );
+  }
+  if (/[\n\r]/.test(text)) {
+    throw new Error("entry must be a single line (no CR or LF allowed)");
+  }
+  if (text.trim().length === 0) {
+    throw new Error("entry must not be only whitespace");
+  }
+  if (text !== text.trim()) {
+    throw new Error("entry must not have leading or trailing whitespace");
+  }
+  return length;
 }
-if (TEXT.trim().length === 0) {
-  throw new Error("entry must not be blank");
-}
+
+const length = validate(TEXT);
 
 const outDir = process.env.OUTPUT_DIR ?? "/output";
 mkdirSync(outDir, { recursive: true });
